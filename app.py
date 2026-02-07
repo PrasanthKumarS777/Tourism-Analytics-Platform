@@ -11,6 +11,7 @@ from sklearn.metrics import r2_score, accuracy_score, mean_absolute_error
 import plotly.express as px
 from datetime import datetime
 import warnings
+import joblib
 
 # Suppress all warnings
 warnings.filterwarnings('ignore')
@@ -32,17 +33,27 @@ DATA_PATH = os.path.join(os.getcwd(), "Dataset")
 
 @st.cache_data
 def load_and_process():
-    files = {name: pd.read_excel(os.path.join(DATA_PATH, f"{name}.xlsx")) 
-             for name in ["City", "User", "Transaction", "Item", "Type"]}
-    
-    df = files["Transaction"].merge(files["User"], on="UserId", how="left") \
-        .merge(files["Item"], on="AttractionId", how="left") \
-        .merge(files["Type"], on="AttractionTypeId", how="left") \
-        .merge(files["City"].add_prefix("User_"), left_on="CityId", right_on="User_CityId", how="left").dropna()
-    return df
+    try:
+        files = {name: pd.read_excel(os.path.join(DATA_PATH, f"{name}.xlsx")) 
+                 for name in ["City", "User", "Transaction", "Item", "Type"]}
+        
+        df = files["Transaction"].merge(files["User"], on="UserId", how="left") \
+            .merge(files["Item"], on="AttractionId", how="left") \
+            .merge(files["Type"], on="AttractionTypeId", how="left") \
+            .merge(files["City"].add_prefix("User_"), left_on="CityId", right_on="User_CityId", how="left").dropna()
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return pd.DataFrame()
 
 @st.cache_resource
-def train_models(df):
+def train_models():
+    """Train models with cached data"""
+    df = load_and_process()
+    
+    if df.empty:
+        return None, None, None, 0, 0, 0, [], []
+    
     feature_cols = ['VisitYear', 'VisitMonth', 'AttractionTypeId', 'ContinentId', 'CountryId']
     
     # Regression
@@ -74,15 +85,21 @@ def train_models(df):
     return reg_model, class_model, le, r2, mae, acc, feature_cols, class_cols
 
 @st.cache_data
-def get_recommendations(_df, user_id, top_n=10):
-    pivot = _df.pivot_table(index='UserId', columns='Attraction', values='Rating').fillna(0)
+def get_recommendations(user_id, top_n=10):
+    """Get recommendations for a user"""
+    df = load_and_process()
+    
+    if df.empty or 'Attraction' not in df.columns:
+        return pd.DataFrame({'Attraction': ["No data available"], 'Avg Rating': [0]})
+    
+    pivot = df.pivot_table(index='UserId', columns='Attraction', values='Rating').fillna(0)
     sim_df = pd.DataFrame(cosine_similarity(pivot), index=pivot.index, columns=pivot.index)
     
     if user_id not in sim_df.index:
-        return pd.DataFrame({'Attraction': ["No data"], 'Avg Rating': [0]})
+        return pd.DataFrame({'Attraction': ["User not found"], 'Avg Rating': [0]})
     
     similar_users = sim_df[user_id].sort_values(ascending=False)[1:6].index
-    recs = _df[_df['UserId'].isin(similar_users)].groupby('Attraction')['Rating'].mean().sort_values(ascending=False).head(top_n).reset_index()
+    recs = df[df['UserId'].isin(similar_users)].groupby('Attraction')['Rating'].mean().sort_values(ascending=False).head(top_n).reset_index()
     recs.columns = ['Attraction', 'Avg Rating']
     return recs.round(2)
 
@@ -91,8 +108,19 @@ def main():
     st.markdown("**Advanced ML-Powered Tourism Insights & Recommendations**")
     st.markdown("---")
     
+    # Load data first
     df = load_and_process()
-    reg_model, class_model, le, r2, mae, acc, feature_cols, class_cols = train_models(df)
+    
+    if df.empty:
+        st.error("⚠️ No data loaded. Please check if Excel files exist in the Dataset folder.")
+        return
+    
+    # Train models (cached)
+    reg_model, class_model, le, r2, mae, acc, feature_cols, class_cols = train_models()
+    
+    if reg_model is None:
+        st.error("⚠️ Failed to train models. Please check your data.")
+        return
     
     # Sidebar
     with st.sidebar:
@@ -119,12 +147,12 @@ def main():
         with c1:
             visits = df.groupby('VisitYear').size().reset_index(name='Visits')
             fig = px.line(visits, x='VisitYear', y='Visits', markers=True, title="Visit Trends")
-            st.plotly_chart(fig, use_container_width=True, key='visits_chart')
+            st.plotly_chart(fig, width='stretch')
         with c2:
             continent_dist = df['ContinentId'].value_counts().reset_index()
             continent_dist.columns = ['Continent', 'Count']
             fig = px.pie(continent_dist, values='Count', names='Continent', hole=0.4, title="Geographic Distribution")
-            st.plotly_chart(fig, use_container_width=True, key='geo_chart')
+            st.plotly_chart(fig, width='stretch')
     
     with tab2:
         col1, col2 = st.columns(2)
@@ -150,15 +178,15 @@ def main():
             st.metric("Classification Accuracy", f"{acc:.2%}")
     
     with tab3:
-        recs = get_recommendations(df, user_id)
+        recs = get_recommendations(user_id)
         st.subheader(f"Top 10 Attractions for User #{user_id}")
-        st.dataframe(recs, use_container_width=True, hide_index=True, height=400)
+        st.dataframe(recs, width='stretch', hide_index=True, height=400)
         
         if recs.iloc[0]['Avg Rating'] > 0:
             fig = px.bar(recs, x='Avg Rating', y='Attraction', orientation='h', 
                         color='Avg Rating', color_continuous_scale='RdYlGn', 
                         title='Recommended Attractions by Rating')
-            st.plotly_chart(fig, use_container_width=True, key='rec_chart')
+            st.plotly_chart(fig, width='stretch')
         
         csv = recs.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download Recommendations", csv, f'recommendations_{datetime.now().strftime("%Y%m%d")}.csv', 'text/csv')
@@ -169,21 +197,21 @@ def main():
             top_types = df['AttractionType'].value_counts().head(10)
             fig = px.bar(x=top_types.values, y=top_types.index, orientation='h', 
                         title='Top 10 Attraction Types', labels={'x': 'Visits', 'y': 'Type'})
-            st.plotly_chart(fig, use_container_width=True, key='types_chart')
+            st.plotly_chart(fig, width='stretch')
         with c2:
             city_counts = df['User_CityName'].value_counts().head(10)
             fig = px.bar(x=city_counts.values, y=city_counts.index, orientation='h',
                         title='Top 10 Visited Cities', labels={'x': 'Visits', 'y': 'City'})
-            st.plotly_chart(fig, use_container_width=True, key='cities_chart')
+            st.plotly_chart(fig, width='stretch')
         
         c1, c2 = st.columns(2)
         with c1:
             monthly = df.groupby('VisitMonth').size().reset_index(name='Visits')
             fig = px.bar(monthly, x='VisitMonth', y='Visits', title='Monthly Visit Patterns')
-            st.plotly_chart(fig, use_container_width=True, key='monthly_chart')
+            st.plotly_chart(fig, width='stretch')
         with c2:
             fig = px.histogram(df, x='Rating', nbins=20, title='Rating Distribution')
-            st.plotly_chart(fig, use_container_width=True, key='rating_chart')
+            st.plotly_chart(fig, width='stretch')
     
     st.markdown("---")
     st.markdown("<div style='text-align: center; color: #64748b;'><p><strong>Tourism Analytics Platform</strong> | Powered by ML © 2024</p></div>", unsafe_allow_html=True)
