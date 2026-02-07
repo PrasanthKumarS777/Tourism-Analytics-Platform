@@ -1,0 +1,9 @@
+[client]
+showWarningOnDirectExecution = false
+
+[theme]
+primaryColor = "#1e3a8a"
+backgroundColor = "#f5f7fa"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#262730"
+font = "sans serif"
