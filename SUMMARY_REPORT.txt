@@ -1,0 +1,74 @@
+================================================================================
+TOURISM EXPERIENCE ANALYTICS - COMPREHENSIVE SUMMARY REPORT
+================================================================================
+
+Report Generated: 2026-02-08 10:07:17
+
+1. DATASET SUMMARY
+--------------------------------------------------------------------------------
+Total Records: 52,930
+Total Features: 32
+Date Range: 2013 - 2022
+Unique Users: 33,530
+Unique Attractions: 30
+Continents Covered: 5
+Countries Covered: 153
+
+2. KEY INSIGHTS
+--------------------------------------------------------------------------------
+Average Rating: 4.16 / 5.00
+Median Rating: 4.0
+Most Common Rating: 5.0
+Most Common Visit Mode: 2 (40.8%)
+Most Popular Attraction Type: Nature & Wildlife Areas
+Top Continent by Visits: Asia
+Best Rated Season: Fall
+
+3. MODEL PERFORMANCE SUMMARY
+--------------------------------------------------------------------------------
+A. REGRESSION MODEL (Rating Prediction):
+
+   Linear Regression:
+      R2 Score:  0.0435
+      RMSE:      0.9491
+      MAE:       0.7526
+      MSE:       0.9008
+
+   Random Forest:
+      R2 Score:  0.1324
+      RMSE:      0.9039
+      MAE:       0.7078
+      MSE:       0.8171
+
+B. CLASSIFICATION MODEL (Visit Mode Prediction):
+
+   Accuracy:   0.4528 (45.28%)
+   Precision:  0.4624
+   Recall:     0.4528
+   F1-Score:   0.4545
+
+C. RECOMMENDATION SYSTEM:
+
+   [OK] Collaborative Filtering: User-based recommendation system
+   [OK] Content-Based Filtering: Attraction similarity system
+
+4. BUSINESS RECOMMENDATIONS
+--------------------------------------------------------------------------------
+[+] High user satisfaction overall - maintain service quality
+[+] Focus marketing on 2 travel packages
+[+] Promote Nature & Wildlife Areas attractions more prominently
+[+] Use personalized recommendations to increase user engagement
+[+] Target seasonal promotions based on rating patterns
+
+5. OUTPUT FILES GENERATED
+--------------------------------------------------------------------------------
+[OK] master_dataset.csv - Integrated and processed dataset
+[OK] eda_plots/ - 14+ visualization plots
+[OK] models/regression_model.pkl - Rating prediction model
+[OK] models/classification_model.pkl - Visit mode prediction model
+[OK] models/recommendation_system.pkl - Recommendation engine
+[OK] models/label_encoders.pkl - Categorical encoders
+
+================================================================================
+END OF REPORT
+================================================================================
