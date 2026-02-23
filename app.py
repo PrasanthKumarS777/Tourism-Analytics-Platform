@@ -1,1019 +1,169 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-import os
-from datetime import datetime
+import streamlit as st, pandas as pd, numpy as np, os, warnings
 from sklearn.preprocessing import LabelEncoder
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBClassifier
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score, accuracy_score, mean_absolute_error, classification_report
-import plotly.express as px
-import plotly.graph_objects as go
+from sklearn.metrics import r2_score, mean_absolute_error, accuracy_score
+import plotly.express as px, plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import warnings
 warnings.filterwarnings('ignore')
 
-# Page Configuration
-st.set_page_config(
-    page_title="Tourism Intelligence Hub",
-    page_icon="🌍",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="Tourism Intelligence Hub", page_icon="🌍", layout="wide", initial_sidebar_state="expanded")
+st.markdown("""<style>h1{background:linear-gradient(120deg,#1e3c72,#2a5298);color:white;padding:1.5rem;border-radius:15px;text-align:center;font-weight:800;letter-spacing:2px;box-shadow:0 10px 30px rgba(0,0,0,.2);margin-bottom:2rem}.stTabs [data-baseweb="tab"]{background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:10px;padding:12px 24px;font-weight:600}.stTabs [aria-selected="true"]{background:linear-gradient(135deg,#f093fb,#f5576c);transform:scale(1.05)}.info-box{background:white;padding:25px;border-radius:15px;box-shadow:0 10px 25px rgba(0,0,0,.1);margin:15px 0;border-left:6px solid #667eea}div[data-testid="stMetric"]{background:white;padding:20px;border-radius:12px;box-shadow:0 5px 20px rgba(0,0,0,.1);border-left:5px solid #667eea}.stButton>button{background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:10px;padding:12px 24px;font-weight:600}section[data-testid="stSidebar"]{background:linear-gradient(180deg,#2b5876,#4e4376)}section[data-testid="stSidebar"] *{color:white!important}</style>""", unsafe_allow_html=True)
+st.markdown("<h1>🌍 TOURISM INTELLIGENCE HUB</h1>", unsafe_allow_html=True)
+st.markdown("""<div style="text-align:center;padding:10px;background:rgba(255,255,255,.9);border-radius:10px;margin-bottom:20px"><p style="font-size:18px;color:#64748b;margin:0"><strong>Advanced Analytics & ML-Powered Insights for Tourism Industry</strong></p><p style="font-size:14px;color:#94a3b8;margin:5px 0 0 0">Real-time predictions • Personalized recommendations • Business intelligence</p></div>""", unsafe_allow_html=True)
 
-# Enhanced Professional Styling
-st.markdown("""
-<style>
-    /* Global Styles */
-    .main {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    }
-    
-    /* Header Styling */
-    h1 {
-        background: linear-gradient(120deg, #1e3c72 0%, #2a5298 100%);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 15px;
-        text-align: center;
-        font-weight: 800;
-        letter-spacing: 2px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        margin-bottom: 2rem;
-    }
-    
-    /* Tab Styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: rgba(255,255,255,0.9);
-        padding: 10px;
-        border-radius: 15px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 10px;
-        padding: 12px 24px;
-        font-weight: 600;
-        font-size: 15px;
-        transition: all 0.3s ease;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        transform: scale(1.05);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    }
-    
-    /* Metric Cards */
-    div[data-testid="stMetricValue"] {
-        font-size: 32px;
-        font-weight: 800;
-        background: linear-gradient(120deg, #667eea, #764ba2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    
-    /* Metric Container */
-    div[data-testid="stMetric"] {
-        background: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        border-left: 5px solid #667eea;
-    }
-    
-    /* Sidebar */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #2b5876 0%, #4e4376 100%);
-    }
-    
-    section[data-testid="stSidebar"] * {
-        color: white !important;
-    }
-    
-    /* DataFrames */
-    .dataframe {
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-    
-    /* Buttons */
-    .stButton>button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 10px;
-        padding: 12px 24px;
-        font-weight: 600;
-        font-size: 16px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        transition: all 0.3s ease;
-    }
-    
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-    }
-    
-    /* Info Boxes */
-    .info-box {
-        background: white;
-        padding: 25px;
-        border-radius: 15px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        margin: 15px 0;
-        border-left: 6px solid #667eea;
-    }
-    
-    /* Prediction Cards */
-    .prediction-card {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        padding: 3rem;
-        border-radius: 20px;
-        text-align: center;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
-        transition: transform 0.3s ease;
-    }
-    
-    .prediction-card:hover {
-        transform: translateY(-5px);
-    }
-    
-    /* Download Button */
-    .download-btn {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        color: white;
-        padding: 10px 20px;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 600;
-        display: inline-block;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Data Loading with Progress
 @st.cache_data(show_spinner=False)
 def load_data():
-    """Load and merge all tourism datasets with error handling"""
     try:
-        with st.spinner("🔄 Loading tourism data..."):
-            datasets = {}
-            data_files = ["City", "User", "Transaction", "Item", "Type"]
-            
-            for name in data_files:
-                file_path = f"Dataset/{name}.xlsx"
-                if os.path.exists(file_path):
-                    datasets[name] = pd.read_excel(file_path)
-                else:
-                    st.warning(f"⚠️ {name}.xlsx not found")
-                    return pd.DataFrame()
-            
-            # Merge all datasets
-            df = datasets["Transaction"].merge(
-                datasets["User"], on="UserId", how="left"
-            ).merge(
-                datasets["Item"], on="AttractionId", how="left"
-            ).merge(
-                datasets["Type"], on="AttractionTypeId", how="left"
-            ).merge(
-                datasets["City"].add_prefix("User_"), 
-                left_on="CityId", 
-                right_on="User_CityId", 
-                how="left"
-            ).dropna()
-            
-            return df
-    except Exception as e:
-        st.error(f"❌ Error loading data: {str(e)}")
-        return pd.DataFrame()
+        d = {n: pd.read_excel(f"Dataset/{n}.xlsx") for n in ["City","User","Transaction","Item","Type"] if os.path.exists(f"Dataset/{n}.xlsx")}
+        if len(d) < 5: st.warning("⚠️ Some files missing"); return pd.DataFrame()
+        return d["Transaction"].merge(d["User"],on="UserId",how="left").merge(d["Item"],on="AttractionId",how="left").merge(d["Type"],on="AttractionTypeId",how="left").merge(d["City"].add_prefix("User_"),left_on="CityId",right_on="User_CityId",how="left").dropna()
+    except Exception as e: st.error(f"❌ {e}"); return pd.DataFrame()
 
 @st.cache_resource(show_spinner=False)
 def train_models(_df):
-    """Train ML models with enhanced metrics"""
-    if _df.empty:
-        return None, None, None, 0, 0, 0, None, None
-    
-    try:
-        with st.spinner("🤖 Training ML models..."):
-            # Rating Prediction Model
-            X_r = _df[['VisitYear', 'VisitMonth', 'AttractionTypeId', 'ContinentId', 'CountryId']]
-            y_r = _df['Rating']
-            X_train_r, X_test_r, y_train_r, y_test_r = train_test_split(
-                X_r, y_r, test_size=0.25, random_state=42
-            )
-            
-            reg = RandomForestRegressor(
-                random_state=42, 
-                n_estimators=100, 
-                max_depth=15, 
-                min_samples_split=5,
-                n_jobs=-1
-            )
-            reg.fit(X_train_r, y_train_r)
-            
-            y_pred_r = reg.predict(X_test_r)
-            r2 = r2_score(y_test_r, y_pred_r)
-            mae = mean_absolute_error(y_test_r, y_pred_r)
-            
-            # Visit Mode Classification Model
-            X_c = _df[['VisitYear', 'VisitMonth', 'ContinentId', 'CountryId']]
-            le = LabelEncoder()
-            y_c = le.fit_transform(_df['VisitMode'])
-            X_train_c, X_test_c, y_train_c, y_test_c = train_test_split(
-                X_c, y_c, test_size=0.25, random_state=42
-            )
-            
-            clf = XGBClassifier(
-                eval_metric='logloss',
-                random_state=42,
-                verbosity=0,
-                n_estimators=100,
-                max_depth=8,
-                learning_rate=0.1
-            )
-            clf.fit(X_train_c, y_train_c)
-            
-            y_pred_c = clf.predict(X_test_c)
-            acc = accuracy_score(y_test_c, y_pred_c)
-            
-            # Feature importance
-            feature_importance_r = pd.DataFrame({
-                'feature': X_r.columns,
-                'importance': reg.feature_importances_
-            }).sort_values('importance', ascending=False)
-            
-            feature_importance_c = pd.DataFrame({
-                'feature': X_c.columns,
-                'importance': clf.feature_importances_
-            }).sort_values('importance', ascending=False)
-            
-            return reg, clf, le, r2, mae, acc, feature_importance_r, feature_importance_c
-            
-    except Exception as e:
-        st.error(f"❌ Error training models: {str(e)}")
-        return None, None, None, 0, 0, 0, None, None
+    if _df.empty: return [None]*8
+    Xr,yr = _df[['VisitYear','VisitMonth','AttractionTypeId','ContinentId','CountryId']],_df['Rating']
+    Xc,le = _df[['VisitYear','VisitMonth','ContinentId','CountryId']],LabelEncoder()
+    yc = le.fit_transform(_df['VisitMode'])
+    Xtr,Xte,ytr,yte = train_test_split(Xr,yr,test_size=0.25,random_state=42)
+    Xtc,Xtec,ytc,ytec = train_test_split(Xc,yc,test_size=0.25,random_state=42)
+    reg = RandomForestRegressor(random_state=42,n_estimators=100,max_depth=15,n_jobs=-1).fit(Xtr,ytr)
+    clf = XGBClassifier(eval_metric='logloss',random_state=42,verbosity=0,n_estimators=100,max_depth=8,learning_rate=0.1).fit(Xtc,ytc)
+    r2,mae,acc = r2_score(yte,reg.predict(Xte)),mean_absolute_error(yte,reg.predict(Xte)),accuracy_score(ytec,clf.predict(Xtec))
+    fi_r = pd.DataFrame({'feature':Xr.columns,'importance':reg.feature_importances_}).sort_values('importance',ascending=False)
+    fi_c = pd.DataFrame({'feature':Xc.columns,'importance':clf.feature_importances_}).sort_values('importance',ascending=False)
+    return reg,clf,le,r2,mae,acc,fi_r,fi_c
 
 @st.cache_data(show_spinner=False)
-def get_recommendations(_df, user_id, top_n=10):
-    """Get personalized recommendations using collaborative filtering"""
-    if _df.empty or 'Attraction' not in _df.columns:
-        return pd.DataFrame({'Attraction': ['No Data'], 'Rating': [0], 'Confidence': [0]})
-    
-    try:
-        # Create user-item matrix
-        pivot = _df.pivot_table(
-            index='UserId', 
-            columns='Attraction', 
-            values='Rating'
-        ).fillna(0)
-        
-        if user_id not in pivot.index:
-            # Return popular items for new users
-            popular = _df.groupby('Attraction').agg({
-                'Rating': ['mean', 'count']
-            }).reset_index()
-            popular.columns = ['Attraction', 'Rating', 'Visits']
-            popular['Confidence'] = (popular['Rating'] * np.log1p(popular['Visits'])) / 10
-            return popular.nlargest(top_n, 'Confidence')[['Attraction', 'Rating', 'Confidence']]
-        
-        # Calculate user similarity
-        sim_matrix = cosine_similarity(pivot)
-        sim_df = pd.DataFrame(sim_matrix, index=pivot.index, columns=pivot.index)
-        
-        # Find similar users
-        similar_users = sim_df[user_id].sort_values(ascending=False)[1:11].index
-        
-        # Get recommendations
-        recommendations = _df[_df['UserId'].isin(similar_users)].groupby('Attraction').agg({
-            'Rating': ['mean', 'count']
-        }).reset_index()
-        recommendations.columns = ['Attraction', 'Rating', 'Count']
-        recommendations['Confidence'] = recommendations['Rating'] * np.sqrt(recommendations['Count']) / 5
-        
-        # Remove already visited attractions
-        user_visited = _df[_df['UserId'] == user_id]['Attraction'].unique()
-        recommendations = recommendations[~recommendations['Attraction'].isin(user_visited)]
-        
-        return recommendations.nlargest(top_n, 'Confidence')[['Attraction', 'Rating', 'Confidence']]
-        
-    except Exception as e:
-        st.error(f"❌ Error generating recommendations: {str(e)}")
-        return pd.DataFrame({'Attraction': ['Error'], 'Rating': [0], 'Confidence': [0]})
+def get_recommendations(_df, uid, top_n=10):
+    if _df.empty or 'Attraction' not in _df.columns: return pd.DataFrame({'Attraction':['No Data'],'Rating':[0],'Confidence':[0]})
+    pivot = _df.pivot_table(index='UserId',columns='Attraction',values='Rating').fillna(0)
+    if uid not in pivot.index:
+        p = _df.groupby('Attraction').agg(Rating=('Rating','mean'),Visits=('Rating','count')).reset_index()
+        p['Confidence'] = p['Rating']*np.log1p(p['Visits'])/10; return p.nlargest(top_n,'Confidence')[['Attraction','Rating','Confidence']]
+    sim = pd.DataFrame(cosine_similarity(pivot),index=pivot.index,columns=pivot.index)
+    sim_users = sim[uid].sort_values(ascending=False)[1:11].index
+    r = _df[_df['UserId'].isin(sim_users)].groupby('Attraction').agg(Rating=('Rating','mean'),Count=('Rating','count')).reset_index()
+    r['Confidence'] = r['Rating']*np.sqrt(r['Count'])/5
+    visited = _df[_df['UserId']==uid]['Attraction'].unique()
+    return r[~r['Attraction'].isin(visited)].nlargest(top_n,'Confidence')[['Attraction','Rating','Confidence']]
 
-def create_kpi_card(title, value, delta=None, icon="📊"):
-    """Create a beautiful KPI card"""
-    delta_html = ""
-    if delta:
-        color = "green" if delta > 0 else "red"
-        arrow = "↑" if delta > 0 else "↓"
-        delta_html = f'<p style="color: {color}; font-size: 14px; margin: 5px 0 0 0;">{arrow} {abs(delta):.1f}%</p>'
-    
-    return f"""
-    <div class="info-box">
-        <h4 style="margin: 0; color: #64748b; font-size: 14px;">{icon} {title}</h4>
-        <h2 style="margin: 10px 0 0 0; color: #1e293b; font-size: 36px; font-weight: 800;">{value}</h2>
-        {delta_html}
-    </div>
-    """
-
-def export_to_csv(dataframe, filename):
-    """Export dataframe to CSV"""
-    return dataframe.to_csv(index=False).encode('utf-8')
-
-# ==================== MAIN APP ====================
-
-# Header
-st.markdown("""
-    <h1>🌍 TOURISM INTELLIGENCE HUB</h1>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-    <div style="text-align: center; padding: 10px; background: rgba(255,255,255,0.9); border-radius: 10px; margin-bottom: 20px;">
-        <p style="font-size: 18px; color: #64748b; margin: 0;">
-            <strong>Advanced Analytics & ML-Powered Insights for Tourism Industry</strong>
-        </p>
-        <p style="font-size: 14px; color: #94a3b8; margin: 5px 0 0 0;">
-            Real-time predictions • Personalized recommendations • Business intelligence
-        </p>
-    </div>
-""", unsafe_allow_html=True)
-
-# Load Data
 df = load_data()
+if df.empty: st.error("❌ Data Loading Failed"); st.stop()
+reg,clf,le,r2,mae,acc,fi_r,fi_c = train_models(df)
 
-if df.empty:
-    st.error("❌ **Data Loading Failed** - Please ensure Dataset folder contains all required Excel files")
-    st.stop()
-
-# Train Models
-reg, clf, le, r2, mae, acc, feat_imp_r, feat_imp_c = train_models(df)
-
-# Sidebar - Enhanced Filters
 with st.sidebar:
-    st.markdown("## ⚙️ CONTROL PANEL")
-    st.markdown("---")
-    
-    # Date Range Filter
-    st.markdown("### 📅 TIME PERIOD")
-    year_range = st.slider(
-        "Select Year Range",
-        int(df['VisitYear'].min()),
-        int(df['VisitYear'].max()),
-        (int(df['VisitYear'].min()), int(df['VisitYear'].max()))
-    )
-    
-    # Filter data based on year range
-    df_filtered = df[(df['VisitYear'] >= year_range[0]) & (df['VisitYear'] <= year_range[1])]
-    
+    st.markdown("## ⚙️ CONTROL PANEL\n---\n### 📅 TIME PERIOD")
+    yr_range = st.slider("Year Range",int(df['VisitYear'].min()),int(df['VisitYear'].max()),(int(df['VisitYear'].min()),int(df['VisitYear'].max())))
+    dff = df[(df['VisitYear']>=yr_range[0])&(df['VisitYear']<=yr_range[1])]
     st.markdown("### 🎯 PREDICTION INPUTS")
-    year = st.selectbox("📅 Visit Year", sorted(df['VisitYear'].unique()), index=len(df['VisitYear'].unique())-1)
-    month = st.selectbox("📆 Month", sorted(df['VisitMonth'].unique()))
-    atype = st.selectbox("🎭 Attraction Type", sorted(df['AttractionTypeId'].unique()))
-    cont = st.selectbox("🌍 Continent", sorted(df['ContinentId'].unique()))
-    ctry = st.selectbox("🗺️ Country", sorted(df['CountryId'].unique()))
-    
+    year=st.selectbox("📅 Visit Year",sorted(df['VisitYear'].unique()),index=len(df['VisitYear'].unique())-1)
+    month=st.selectbox("📆 Month",sorted(df['VisitMonth'].unique()))
+    atype=st.selectbox("🎭 Attraction Type",sorted(df['AttractionTypeId'].unique()))
+    cont=st.selectbox("🌍 Continent",sorted(df['ContinentId'].unique()))
+    ctry=st.selectbox("🗺️ Country",sorted(df['CountryId'].unique()))
     st.markdown("### 👤 USER SELECTION")
-    uid = st.selectbox("User ID", sorted(df['UserId'].unique())[:100])
-    
-    st.markdown("---")
-    st.markdown("### 📊 MODEL PERFORMANCE")
-    st.metric("Rating Model R²", f"{r2:.3f}")
-    st.metric("Mode Model Accuracy", f"{acc:.1%}")
-    
-    st.markdown("---")
-    st.markdown("""
-        <div style="text-align: center; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px;">
-            <p style="margin: 0; font-size: 12px;">© 2024 Tourism Intelligence</p>
-            <p style="margin: 5px 0 0 0; font-size: 11px; opacity: 0.7;">Powered by ML & AI</p>
-        </div>
-    """, unsafe_allow_html=True)
+    uid=st.selectbox("User ID",sorted(df['UserId'].unique())[:100])
+    st.markdown("---\n### 📊 MODEL PERFORMANCE")
+    st.metric("Rating Model R²",f"{r2:.3f}"); st.metric("Mode Model Accuracy",f"{acc:.1%}")
 
-# Main Tabs
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📊 Executive Dashboard",
-    "🎯 ML Predictions",
-    "⭐ Smart Recommendations",
-    "📈 Deep Analytics",
-    "🔍 Trend Analysis",
-    "📋 Data Explorer"
-])
+kpi = lambda t,v,i: st.markdown(f'<div class="info-box"><h4 style="margin:0;color:#64748b;font-size:14px">{i} {t}</h4><h2 style="margin:10px 0 0 0;color:#1e293b;font-size:36px;font-weight:800">{v}</h2></div>',unsafe_allow_html=True)
+tab1,tab2,tab3,tab4,tab5,tab6 = st.tabs(["📊 Executive Dashboard","🎯 ML Predictions","⭐ Smart Recommendations","📈 Deep Analytics","🔍 Trend Analysis","📋 Data Explorer"])
 
-# ==================== TAB 1: EXECUTIVE DASHBOARD ====================
 with tab1:
-    st.markdown("## 📊 EXECUTIVE DASHBOARD")
-    st.markdown("Real-time KPIs and business metrics")
-    
-    # Top KPIs
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        st.markdown(create_kpi_card(
-            "Total Visits",
-            f"{len(df_filtered):,}",
-            icon="📋"
-        ), unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(create_kpi_card(
-            "Unique Users",
-            f"{df_filtered['UserId'].nunique():,}",
-            icon="👥"
-        ), unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(create_kpi_card(
-            "Attractions",
-            f"{df_filtered['Attraction'].nunique():,}",
-            icon="🏛️"
-        ), unsafe_allow_html=True)
-    
-    with col4:
-        avg_rating = df_filtered['Rating'].mean()
-        st.markdown(create_kpi_card(
-            "Avg Rating",
-            f"{avg_rating:.2f}/5.0",
-            icon="⭐"
-        ), unsafe_allow_html=True)
-    
-    with col5:
-        st.markdown(create_kpi_card(
-            "Continents",
-            f"{df_filtered['ContinentId'].nunique()}",
-            icon="🌍"
-        ), unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # Charts Row 1
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Visit Trends Over Time
-        yearly = df_filtered.groupby('VisitYear').size().reset_index(name='Visits')
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=yearly['VisitYear'],
-            y=yearly['Visits'],
-            mode='lines+markers',
-            line=dict(color='#667eea', width=4),
-            marker=dict(size=10, color='#764ba2'),
-            fill='tozeroy',
-            fillcolor='rgba(102, 126, 234, 0.2)'
-        ))
-        fig.update_layout(
-            title="📈 Visit Trends Over Time",
-            xaxis_title="Year",
-            yaxis_title="Number of Visits",
-            height=350,
-            hovermode='x unified',
-            plot_bgcolor='rgba(255,255,255,0.9)',
-            paper_bgcolor='rgba(255,255,255,0.9)'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Geographic Distribution
-        cont_data = df_filtered['ContinentId'].value_counts().reset_index()
-        cont_data.columns = ['Continent', 'Count']
-        fig = px.pie(
-            cont_data,
-            values='Count',
-            names='Continent',
-            title="🌍 Geographic Distribution",
-            hole=0.4,
-            color_discrete_sequence=px.colors.sequential.RdBu
-        )
-        fig.update_traces(textposition='inside', textinfo='percent+label')
-        fig.update_layout(
-            height=350,
-            plot_bgcolor='rgba(255,255,255,0.9)',
-            paper_bgcolor='rgba(255,255,255,0.9)'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Charts Row 2
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Monthly Distribution
-        monthly = df_filtered.groupby('VisitMonth').size().reset_index(name='Visits')
-        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        monthly['Month'] = monthly['VisitMonth'].apply(lambda x: month_names[int(x)-1] if x <= 12 else str(x))
-        
-        fig = px.bar(
-            monthly,
-            x='Month',
-            y='Visits',
-            title="📆 Seasonal Patterns",
-            color='Visits',
-            color_continuous_scale='Viridis'
-        )
-        fig.update_layout(
-            height=350,
-            plot_bgcolor='rgba(255,255,255,0.9)',
-            paper_bgcolor='rgba(255,255,255,0.9)'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Rating Distribution
-        fig = px.histogram(
-            df_filtered,
-            x='Rating',
-            title="⭐ Rating Distribution",
-            nbins=20,
-            color_discrete_sequence=['#667eea']
-        )
-        fig.update_layout(
-            height=350,
-            xaxis_title="Rating",
-            yaxis_title="Frequency",
-            plot_bgcolor='rgba(255,255,255,0.9)',
-            paper_bgcolor='rgba(255,255,255,0.9)'
-        )
-        st.plotly_chart(fig, use_container_width=True)
+    st.markdown("## 📊 EXECUTIVE DASHBOARD\nReal-time KPIs and business metrics")
+    c=st.columns(5)
+    for col,(title,val,icon) in zip(c,[("Total Visits",f"{len(dff):,}","📋"),("Unique Users",f"{dff['UserId'].nunique():,}","👥"),("Attractions",f"{dff['Attraction'].nunique():,}","🏛️"),("Avg Rating",f"{dff['Rating'].mean():.2f}/5.0","⭐"),("Continents",f"{dff['ContinentId'].nunique()}","🌍")]):
+        with col: kpi(title,val,icon)
+    c1,c2=st.columns(2)
+    with c1:
+        yt=dff.groupby('VisitYear').size().reset_index(name='Visits'); f=go.Figure(go.Scatter(x=yt['VisitYear'],y=yt['Visits'],mode='lines+markers',line=dict(color='#667eea',width=4),fill='tozeroy',fillcolor='rgba(102,126,234,.2)')); f.update_layout(title="📈 Visit Trends",height=350,plot_bgcolor='rgba(255,255,255,.9)',paper_bgcolor='rgba(255,255,255,.9)'); st.plotly_chart(f,use_container_width=True)
+    with c2:
+        cd=dff['ContinentId'].value_counts().reset_index(); cd.columns=['Continent','Count']; f=px.pie(cd,values='Count',names='Continent',title="🌍 Geographic Distribution",hole=0.4,color_discrete_sequence=px.colors.sequential.RdBu); f.update_layout(height=350); st.plotly_chart(f,use_container_width=True)
+    c1,c2=st.columns(2)
+    mn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    with c1:
+        mo=dff.groupby('VisitMonth').size().reset_index(name='Visits'); mo['Month']=mo['VisitMonth'].apply(lambda x:mn[int(x)-1]); f=px.bar(mo,x='Month',y='Visits',title="📆 Seasonal Patterns",color='Visits',color_continuous_scale='Viridis'); f.update_layout(height=350); st.plotly_chart(f,use_container_width=True)
+    with c2:
+        f=px.histogram(dff,x='Rating',title="⭐ Rating Distribution",nbins=20,color_discrete_sequence=['#667eea']); f.update_layout(height=350); st.plotly_chart(f,use_container_width=True)
 
-# ==================== TAB 2: ML PREDICTIONS ====================
 with tab2:
     st.markdown("## 🎯 MACHINE LEARNING PREDICTIONS")
-    st.markdown("AI-powered predictions for ratings and travel modes")
-    
     if reg and clf and le:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Rating Prediction
-            pred_rating = reg.predict([[year, month, atype, cont, ctry]])[0]
-            pred_rating = max(1, min(5, pred_rating))  # Clamp between 1-5
-            
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                        padding: 3rem; border-radius: 20px; text-align: center;
-                        box-shadow: 0 15px 35px rgba(0,0,0,0.3);">
-                <h3 style="color: white; margin: 0; font-size: 20px;">⭐ PREDICTED RATING</h3>
-                <h1 style="color: white; font-size: 5rem; margin: 1.5rem 0; font-weight: 900;">{pred_rating:.2f}</h1>
-                <p style="color: white; opacity: 0.95; font-size: 18px; margin: 0;">out of 5.0 stars</p>
-                <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid rgba(255,255,255,0.3);">
-                    <p style="color: white; margin: 0; font-size: 14px;">Confidence: High</p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("")
-            
-            # Model Metrics
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.metric("🎯 R² Score", f"{r2:.4f}", help="Coefficient of determination")
-            with col_b:
-                st.metric("📊 MAE", f"{mae:.4f}", help="Mean Absolute Error")
-            
-            # Feature Importance
-            if feat_imp_r is not None and not feat_imp_r.empty:
-                st.markdown("#### 📈 Feature Importance (Rating)")
-                fig = px.bar(
-                    feat_imp_r,
-                    x='importance',
-                    y='feature',
-                    orientation='h',
-                    color='importance',
-                    color_continuous_scale='Blues'
-                )
-                fig.update_layout(
-                    height=300,
-                    showlegend=False,
-                    yaxis={'categoryorder':'total ascending'}
-                )
-                st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Visit Mode Prediction
-            pred_mode = le.inverse_transform(clf.predict([[year, month, cont, ctry]]))[0]
-            mode_proba = clf.predict_proba([[year, month, cont, ctry]])[0]
-            confidence = max(mode_proba) * 100
-            
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
-                        padding: 3rem; border-radius: 20px; text-align: center;
-                        box-shadow: 0 15px 35px rgba(0,0,0,0.3);">
-                <h3 style="color: white; margin: 0; font-size: 20px;">🧭 RECOMMENDED MODE</h3>
-                <h1 style="color: white; font-size: 3.5rem; margin: 1.5rem 0; font-weight: 900;">{pred_mode}</h1>
-                <p style="color: white; opacity: 0.95; font-size: 18px; margin: 0;">Best travel mode for this experience</p>
-                <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid rgba(255,255,255,0.3);">
-                    <p style="color: white; margin: 0; font-size: 14px;">Confidence: {confidence:.1f}%</p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("")
-            
-            # Model Accuracy
-            st.metric("🎯 Model Accuracy", f"{acc:.2%}", help="Classification accuracy on test set")
-            
-            # Mode Probabilities
-            st.markdown("#### 📊 Mode Probabilities")
-            mode_df = pd.DataFrame({
-                'Mode': le.classes_,
-                'Probability': mode_proba * 100
-            }).sort_values('Probability', ascending=False)
-            
-            fig = px.bar(
-                mode_df,
-                x='Probability',
-                y='Mode',
-                orientation='h',
-                color='Probability',
-                color_continuous_scale='Reds',
-                text='Probability'
-            )
-            fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-            fig.update_layout(
-                height=300,
-                showlegend=False,
-                yaxis={'categoryorder':'total ascending'}
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.error("❌ Models not available. Please check data quality.")
+        c1,c2=st.columns(2)
+        with c1:
+            pr=max(1,min(5,reg.predict([[year,month,atype,cont,ctry]])[0]))
+            st.markdown(f'<div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:3rem;border-radius:20px;text-align:center;box-shadow:0 15px 35px rgba(0,0,0,.3)"><h3 style="color:white;margin:0">⭐ PREDICTED RATING</h3><h1 style="color:white;font-size:5rem;margin:1.5rem 0;font-weight:900">{pr:.2f}</h1><p style="color:white;opacity:.95;font-size:18px;margin:0">out of 5.0 stars</p></div>',unsafe_allow_html=True)
+            cc1,cc2=st.columns(2); cc1.metric("🎯 R² Score",f"{r2:.4f}"); cc2.metric("📊 MAE",f"{mae:.4f}")
+            f=px.bar(fi_r,x='importance',y='feature',orientation='h',color='importance',color_continuous_scale='Blues',title="Feature Importance (Rating)"); f.update_layout(height=300,showlegend=False,yaxis={'categoryorder':'total ascending'}); st.plotly_chart(f,use_container_width=True)
+        with c2:
+            pm=le.inverse_transform(clf.predict([[year,month,cont,ctry]]))[0]; pp=clf.predict_proba([[year,month,cont,ctry]])[0]; conf=max(pp)*100
+            st.markdown(f'<div style="background:linear-gradient(135deg,#f093fb,#f5576c);padding:3rem;border-radius:20px;text-align:center;box-shadow:0 15px 35px rgba(0,0,0,.3)"><h3 style="color:white;margin:0">🧭 RECOMMENDED MODE</h3><h1 style="color:white;font-size:3.5rem;margin:1.5rem 0;font-weight:900">{pm}</h1><p style="color:white;opacity:.95;font-size:18px;margin:0">Best travel mode</p><p style="color:white;margin:1rem 0 0 0">Confidence: {conf:.1f}%</p></div>',unsafe_allow_html=True)
+            st.metric("🎯 Model Accuracy",f"{acc:.2%}")
+            md=pd.DataFrame({'Mode':le.classes_,'Probability':pp*100}).sort_values('Probability',ascending=False)
+            f=px.bar(md,x='Probability',y='Mode',orientation='h',color='Probability',color_continuous_scale='Reds',text='Probability'); f.update_traces(texttemplate='%{text:.1f}%',textposition='outside'); f.update_layout(height=300,showlegend=False,yaxis={'categoryorder':'total ascending'}); st.plotly_chart(f,use_container_width=True)
 
-# ==================== TAB 3: SMART RECOMMENDATIONS ====================
 with tab3:
     st.markdown(f"## ⭐ PERSONALIZED RECOMMENDATIONS FOR USER #{uid}")
-    st.markdown("AI-powered attraction recommendations based on collaborative filtering")
-    
-    # Get recommendations
-    recs = get_recommendations(df, uid, top_n=15)
-    
-    if not recs.empty and recs.iloc[0]['Rating'] > 0:
-        # Display metrics
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            user_visits = len(df[df['UserId'] == uid])
-            st.metric("🎫 User Visits", f"{user_visits}")
-        with col2:
-            user_avg_rating = df[df['UserId'] == uid]['Rating'].mean()
-            st.metric("⭐ Avg Rating Given", f"{user_avg_rating:.2f}")
-        with col3:
-            st.metric("🎯 Recommendations", len(recs))
-        
-        st.markdown("---")
-        
-        # Display recommendations
-        col1, col2 = st.columns([3, 2])
-        
-        with col1:
-            st.markdown("### 📋 Top Recommendations")
-            
-            # Style the dataframe
-            styled_recs = recs.head(10).copy()
-            styled_recs['Rating'] = styled_recs['Rating'].round(2)
-            styled_recs['Confidence'] = styled_recs['Confidence'].round(3)
-            styled_recs.index = range(1, len(styled_recs) + 1)
-            
-            st.dataframe(
-                styled_recs,
-                height=400,
-                use_container_width=True
-            )
-            
-            # Download button
-            csv = export_to_csv(styled_recs, 'recommendations.csv')
-            st.download_button(
-                label="📥 Download Recommendations",
-                data=csv,
-                file_name=f'recommendations_user_{uid}.csv',
-                mime='text/csv',
-            )
-        
-        with col2:
-            st.markdown("### 📊 Recommendation Scores")
-            
-            # Bar chart
-            top_6 = recs.head(6)
-            fig = px.bar(
-                top_6,
-                x='Confidence',
-                y='Attraction',
-                orientation='h',
-                color='Rating',
-                color_continuous_scale='RdYlGn',
-                text='Rating'
-            )
-            fig.update_traces(texttemplate='%{text:.2f}⭐', textposition='outside')
-            fig.update_layout(
-                height=400,
-                yaxis={'categoryorder':'total ascending'},
-                showlegend=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # User's Visit History
-        st.markdown("---")
-        st.markdown("### 📜 User's Visit History")
-        
-        user_history = df[df['UserId'] == uid][['Attraction', 'Rating', 'VisitYear', 'VisitMonth']].sort_values(
-            ['VisitYear', 'VisitMonth'], ascending=False
-        ).head(10)
-        
-        if not user_history.empty:
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                st.dataframe(user_history, hide_index=True, use_container_width=True)
-            with col2:
-                # Rating trend
-                fig = px.line(
-                    user_history.iloc[::-1],
-                    y='Rating',
-                    title="Rating Trend",
-                    markers=True
-                )
-                fig.update_layout(height=250, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("⚠️ No recommendations available for this user.")
+    recs=get_recommendations(df,uid,top_n=15)
+    if not recs.empty and recs.iloc[0]['Rating']>0:
+        c1,c2,c3=st.columns(3); c1.metric("🎫 User Visits",len(df[df['UserId']==uid])); c2.metric("⭐ Avg Rating Given",f"{df[df['UserId']==uid]['Rating'].mean():.2f}"); c3.metric("🎯 Recommendations",len(recs))
+        c1,c2=st.columns([3,2])
+        with c1:
+            sr=recs.head(10).copy(); sr['Rating']=sr['Rating'].round(2); sr['Confidence']=sr['Confidence'].round(3); sr.index=range(1,len(sr)+1)
+            st.dataframe(sr,height=400,use_container_width=True); st.download_button("📥 Download Recommendations",sr.to_csv().encode(),'recommendations.csv','text/csv')
+        with c2:
+            t6=recs.head(6); f=px.bar(t6,x='Confidence',y='Attraction',orientation='h',color='Rating',color_continuous_scale='RdYlGn',text='Rating'); f.update_traces(texttemplate='%{text:.2f}⭐',textposition='outside'); f.update_layout(height=400,yaxis={'categoryorder':'total ascending'},showlegend=False); st.plotly_chart(f,use_container_width=True)
+        uh=df[df['UserId']==uid][['Attraction','Rating','VisitYear','VisitMonth']].sort_values(['VisitYear','VisitMonth'],ascending=False).head(10)
+        if not uh.empty:
+            c1,c2=st.columns([2,1]);
+            with c1: st.dataframe(uh,hide_index=True,use_container_width=True)
+            with c2: f=px.line(uh.iloc[::-1],y='Rating',title="Rating Trend",markers=True); f.update_layout(height=250,showlegend=False); st.plotly_chart(f,use_container_width=True)
 
-# ==================== TAB 4: DEEP ANALYTICS ====================
 with tab4:
     st.markdown("## 📈 DEEP ANALYTICS & INSIGHTS")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Top Attractions
-        st.markdown("### 🏆 Top 15 Attractions")
-        top_attr = df_filtered['Attraction'].value_counts().head(15).reset_index()
-        top_attr.columns = ['Attraction', 'Visits']
-        
-        fig = px.bar(
-            top_attr,
-            x='Visits',
-            y='Attraction',
-            orientation='h',
-            color='Visits',
-            color_continuous_scale='Blues',
-            text='Visits'
-        )
-        fig.update_traces(textposition='outside')
-        fig.update_layout(
-            height=500,
-            yaxis={'categoryorder':'total ascending'},
-            showlegend=False
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Top User Cities
-        st.markdown("### 🏙️ Top 15 User Cities")
-        if 'User_CityName' in df_filtered.columns:
-            top_cities = df_filtered['User_CityName'].value_counts().head(15).reset_index()
-            top_cities.columns = ['City', 'Users']
-            
-            fig = px.bar(
-                top_cities,
-                x='Users',
-                y='City',
-                orientation='h',
-                color='Users',
-                color_continuous_scale='Reds',
-                text='Users'
-            )
-            fig.update_traces(textposition='outside')
-            fig.update_layout(
-                height=500,
-                yaxis={'categoryorder':'total ascending'},
-                showlegend=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("---")
-    
-    # Visit Mode Analysis
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 🚗 Visit Mode Distribution")
-        mode_dist = df_filtered['VisitMode'].value_counts().reset_index()
-        mode_dist.columns = ['Mode', 'Count']
-        
-        fig = px.pie(
-            mode_dist,
-            values='Count',
-            names='Mode',
-            hole=0.5,
-            color_discrete_sequence=px.colors.qualitative.Set3
-        )
-        fig.update_traces(textposition='inside', textinfo='percent+label')
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.markdown("### 🎭 Attraction Type Performance")
-        type_perf = df_filtered.groupby('AttractionTypeId').agg({
-            'Rating': 'mean',
-            'UserId': 'count'
-        }).reset_index()
-        type_perf.columns = ['Type', 'Avg_Rating', 'Count']
-        
-        fig = px.scatter(
-            type_perf,
-            x='Count',
-            y='Avg_Rating',
-            size='Count',
-            color='Avg_Rating',
-            color_continuous_scale='RdYlGn',
-            hover_data=['Type'],
-            text='Type'
-        )
-        fig.update_traces(textposition='top center')
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
+    c1,c2=st.columns(2)
+    with c1:
+        ta=dff['Attraction'].value_counts().head(15).reset_index(); ta.columns=['Attraction','Visits']; f=px.bar(ta,x='Visits',y='Attraction',orientation='h',color='Visits',color_continuous_scale='Blues',text='Visits',title="🏆 Top 15 Attractions"); f.update_traces(textposition='outside'); f.update_layout(height=500,yaxis={'categoryorder':'total ascending'},showlegend=False); st.plotly_chart(f,use_container_width=True)
+    with c2:
+        if 'User_CityName' in dff.columns:
+            tc=dff['User_CityName'].value_counts().head(15).reset_index(); tc.columns=['City','Users']; f=px.bar(tc,x='Users',y='City',orientation='h',color='Users',color_continuous_scale='Reds',text='Users',title="🏙️ Top 15 User Cities"); f.update_traces(textposition='outside'); f.update_layout(height=500,yaxis={'categoryorder':'total ascending'},showlegend=False); st.plotly_chart(f,use_container_width=True)
+    c1,c2=st.columns(2)
+    with c1:
+        md=dff['VisitMode'].value_counts().reset_index(); md.columns=['Mode','Count']; f=px.pie(md,values='Count',names='Mode',hole=0.5,title="🚗 Visit Mode Distribution",color_discrete_sequence=px.colors.qualitative.Set3); f.update_traces(textposition='inside',textinfo='percent+label'); f.update_layout(height=400); st.plotly_chart(f,use_container_width=True)
+    with c2:
+        tp=dff.groupby('AttractionTypeId').agg(Avg_Rating=('Rating','mean'),Count=('UserId','count')).reset_index(); tp.columns=['Type','Avg_Rating','Count']; f=px.scatter(tp,x='Count',y='Avg_Rating',size='Count',color='Avg_Rating',color_continuous_scale='RdYlGn',hover_data=['Type'],text='Type',title="🎭 Attraction Type Performance"); f.update_traces(textposition='top center'); f.update_layout(height=400); st.plotly_chart(f,use_container_width=True)
 
-# ==================== TAB 5: TREND ANALYSIS ====================
 with tab5:
     st.markdown("## 🔍 TREND ANALYSIS")
-    
-    # Year-over-Year Growth
-    st.markdown("### 📈 Year-over-Year Growth Analysis")
-    yearly_stats = df.groupby('VisitYear').agg({
-        'UserId': 'count',
-        'Rating': 'mean'
-    }).reset_index()
-    yearly_stats.columns = ['Year', 'Visits', 'Avg_Rating']
-    yearly_stats['Growth_%'] = yearly_stats['Visits'].pct_change() * 100
-    
-    fig = make_subplots(
-        rows=1, cols=2,
-        subplot_titles=('Visit Volume', 'Average Rating'),
-        specs=[[{"secondary_y": False}, {"secondary_y": False}]]
-    )
-    
-    fig.add_trace(
-        go.Bar(x=yearly_stats['Year'], y=yearly_stats['Visits'], 
-               name='Visits', marker_color='#667eea'),
-        row=1, col=1
-    )
-    
-    fig.add_trace(
-        go.Scatter(x=yearly_stats['Year'], y=yearly_stats['Avg_Rating'],
-                   mode='lines+markers', name='Avg Rating', 
-                   line=dict(color='#f5576c', width=3)),
-        row=1, col=2
-    )
-    
-    fig.update_layout(height=400, showlegend=True)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Display growth table
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.dataframe(
-            yearly_stats.style.format({
-                'Visits': '{:,.0f}',
-                'Avg_Rating': '{:.2f}',
-                'Growth_%': '{:.2f}%'
-            }),
-            hide_index=True,
-            use_container_width=True
-        )
-    
-    with col2:
-        total_growth = ((yearly_stats['Visits'].iloc[-1] / yearly_stats['Visits'].iloc[0]) - 1) * 100
-        st.metric(
-            "Total Growth",
-            f"{total_growth:.1f}%",
-            delta=f"{yearly_stats['Growth_%'].iloc[-1]:.1f}% YoY"
-        )
-    
-    st.markdown("---")
-    
-    # Monthly Patterns
-    st.markdown("### 📆 Monthly Patterns & Seasonality")
-    monthly_pattern = df.groupby(['VisitYear', 'VisitMonth']).size().reset_index(name='Visits')
-    
-    fig = px.line(
-        monthly_pattern,
-        x='VisitMonth',
-        y='Visits',
-        color='VisitYear',
-        markers=True,
-        title="Monthly Visit Patterns by Year"
-    )
-    fig.update_layout(height=400, hovermode='x unified')
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Heatmap
-    heatmap_data = df.pivot_table(
-        index='VisitMonth',
-        columns='VisitYear',
-        values='UserId',
-        aggfunc='count'
-    ).fillna(0)
-    
-    fig = px.imshow(
-        heatmap_data,
-        labels=dict(x="Year", y="Month", color="Visits"),
-        aspect="auto",
-        color_continuous_scale='YlOrRd'
-    )
-    fig.update_layout(height=400, title="Visit Heatmap: Month vs Year")
-    st.plotly_chart(fig, use_container_width=True)
+    ys=df.groupby('VisitYear').agg(Visits=('UserId','count'),Avg_Rating=('Rating','mean')).reset_index(); ys['Growth_%']=ys['Visits'].pct_change()*100
+    fig=make_subplots(rows=1,cols=2,subplot_titles=('Visit Volume','Average Rating')); fig.add_trace(go.Bar(x=ys['VisitYear'],y=ys['Visits'],name='Visits',marker_color='#667eea'),row=1,col=1); fig.add_trace(go.Scatter(x=ys['VisitYear'],y=ys['Avg_Rating'],mode='lines+markers',name='Avg Rating',line=dict(color='#f5576c',width=3)),row=1,col=2); fig.update_layout(height=400); st.plotly_chart(fig,use_container_width=True)
+    c1,c2=st.columns([2,1])
+    with c1: st.dataframe(ys.style.format({'Visits':'{:,.0f}','Avg_Rating':'{:.2f}','Growth_%':'{:.2f}%'}),hide_index=True,use_container_width=True)
+    with c2: tg=((ys['Visits'].iloc[-1]/ys['Visits'].iloc[0])-1)*100; st.metric("Total Growth",f"{tg:.1f}%",delta=f"{ys['Growth_%'].iloc[-1]:.1f}% YoY")
+    mp=df.groupby(['VisitYear','VisitMonth']).size().reset_index(name='Visits'); f=px.line(mp,x='VisitMonth',y='Visits',color='VisitYear',markers=True,title="Monthly Visit Patterns by Year"); f.update_layout(height=400); st.plotly_chart(f,use_container_width=True)
+    hm=df.pivot_table(index='VisitMonth',columns='VisitYear',values='UserId',aggfunc='count').fillna(0); f=px.imshow(hm,labels=dict(x="Year",y="Month",color="Visits"),aspect="auto",color_continuous_scale='YlOrRd'); f.update_layout(height=400,title="Visit Heatmap: Month vs Year"); st.plotly_chart(f,use_container_width=True)
 
-# ==================== TAB 6: DATA EXPLORER ====================
 with tab6:
     st.markdown("## 📋 DATA EXPLORER")
-    
-    # Filters
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        filter_continent = st.multiselect(
-            "Filter by Continent",
-            options=sorted(df['ContinentId'].unique()),
-            default=[]
-        )
-    with col2:
-        filter_mode = st.multiselect(
-            "Filter by Visit Mode",
-            options=sorted(df['VisitMode'].unique()),
-            default=[]
-        )
-    with col3:
-        rating_range = st.slider(
-            "Filter by Rating",
-            float(df['Rating'].min()),
-            float(df['Rating'].max()),
-            (float(df['Rating'].min()), float(df['Rating'].max()))
-        )
-    
-    # Apply filters
-    df_explorer = df_filtered.copy()
-    if filter_continent:
-        df_explorer = df_explorer[df_explorer['ContinentId'].isin(filter_continent)]
-    if filter_mode:
-        df_explorer = df_explorer[df_explorer['VisitMode'].isin(filter_mode)]
-    df_explorer = df_explorer[
-        (df_explorer['Rating'] >= rating_range[0]) & 
-        (df_explorer['Rating'] <= rating_range[1])
-    ]
-    
-    # Display stats
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Filtered Records", f"{len(df_explorer):,}")
-    col2.metric("Avg Rating", f"{df_explorer['Rating'].mean():.2f}")
-    col3.metric("Unique Attractions", f"{df_explorer['Attraction'].nunique()}")
-    col4.metric("Unique Users", f"{df_explorer['UserId'].nunique()}")
-    
-    # Data Table
-    st.markdown("### 📊 Filtered Data")
-    display_cols = ['Attraction', 'Rating', 'VisitYear', 'VisitMonth', 'VisitMode', 
-                   'ContinentId', 'CountryId']
-    
-    st.dataframe(
-        df_explorer[display_cols].head(100),
-        hide_index=True,
-        use_container_width=True,
-        height=400
-    )
-    
-    # Download options
-    col1, col2 = st.columns(2)
-    with col1:
-        csv_all = export_to_csv(df_explorer[display_cols], 'filtered_data.csv')
-        st.download_button(
-            label="📥 Download Filtered Data (CSV)",
-            data=csv_all,
-            file_name='tourism_filtered_data.csv',
-            mime='text/csv',
-        )
-    
-    with col2:
-        # Summary stats
+    c1,c2,c3=st.columns(3)
+    fc=c1.multiselect("Filter by Continent",sorted(df['ContinentId'].unique()),default=[])
+    fm=c2.multiselect("Filter by Visit Mode",sorted(df['VisitMode'].unique()),default=[])
+    rr=c3.slider("Filter by Rating",float(df['Rating'].min()),float(df['Rating'].max()),(float(df['Rating'].min()),float(df['Rating'].max())))
+    de=dff.copy()
+    if fc: de=de[de['ContinentId'].isin(fc)]
+    if fm: de=de[de['VisitMode'].isin(fm)]
+    de=de[(de['Rating']>=rr[0])&(de['Rating']<=rr[1])]
+    c1,c2,c3,c4=st.columns(4); c1.metric("Filtered Records",f"{len(de):,}"); c2.metric("Avg Rating",f"{de['Rating'].mean():.2f}"); c3.metric("Unique Attractions",f"{de['Attraction'].nunique()}"); c4.metric("Unique Users",f"{de['UserId'].nunique()}")
+    dc=['Attraction','Rating','VisitYear','VisitMonth','VisitMode','ContinentId','CountryId']
+    st.dataframe(de[dc].head(100),hide_index=True,use_container_width=True,height=400)
+    c1,c2=st.columns(2)
+    with c1: st.download_button("📥 Download Filtered Data (CSV)",de[dc].to_csv(index=False).encode(),'tourism_filtered_data.csv','text/csv')
+    with c2:
         if st.button("📊 Generate Summary Report"):
-            summary = df_explorer.describe()
-            csv_summary = export_to_csv(summary, 'summary.csv')
-            st.download_button(
-                label="📥 Download Summary Statistics",
-                data=csv_summary,
-                file_name='summary_statistics.csv',
-                mime='text/csv',
-            )
+            st.download_button("📥 Download Summary Statistics",de.describe().to_csv().encode(),'summary_statistics.csv','text/csv')
 
-# Footer
-st.markdown("---")
-st.markdown("""
-    <div style="text-align: center; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-        <h3 style="color: white; margin: 0;">🌍 Tourism Intelligence Hub</h3>
-        <p style="color: white; opacity: 0.9; margin: 10px 0 0 0;">
-            © 2024 | Powered by Advanced Machine Learning & AI | Data-Driven Tourism Insights
-        </p>
-    </div>
-""", unsafe_allow_html=True)
+st.markdown('---\n<div style="text-align:center;padding:25px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:15px"><h3 style="color:white;margin:0">🌍 Tourism Intelligence Hub</h3><p style="color:white;opacity:.9;margin:10px 0 0 0">© 2024 | Powered by Advanced Machine Learning & AI</p></div>',unsafe_allow_html=True)
